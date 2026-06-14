@@ -1,0 +1,38 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python Cache & Testing
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Databases (Vector DB & SQLite Session DB)
+chroma_db/
+chat_memory.db
+
+# User Uploaded Documents
+documents/
+
+# Environment Variables / Credentials
+.env
+
+# Node.js (Frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+frontend/.vite-inspect/
+
+# IDEs & System Files
+.vscode/
+.idea/
+*.suo
+*.sln
+*.user
+.DS_Store
+Thumbs.db

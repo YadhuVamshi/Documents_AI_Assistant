@@ -1,0 +1,25 @@
+# Exclude Python environment and caches
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Exclude local databases and documents
+chroma_db/
+documents/
+chat_memory.db
+
+# Exclude git metadata
+.git/
+.gitignore
+.dockerignore
+
+# Exclude test files
+test/
+pytest.ini
+conftest.py

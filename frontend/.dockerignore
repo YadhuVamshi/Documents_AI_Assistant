@@ -1,0 +1,7 @@
+# Exclude local node modules and build artifacts
+node_modules/
+dist/
+.eslintcache
+.git/
+.gitignore
+.dockerignore

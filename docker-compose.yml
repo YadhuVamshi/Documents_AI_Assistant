@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # 1. FastAPI Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      # Maps port 8000 on the host machine to port 8000 inside the container.
+      - "8000:8000"
+    volumes:
+      # Binds local folders to the container, so DB state and uploads persist on your host disk
+      - ./documents:/app/documents
+      - ./chroma_db:/app/chroma_db
+      - ./chat_memory.db:/app/chat_memory.db
+    restart: always
+
+  # 2. Vite React Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      # Maps Vite port 5173 on the host machine to port 5173 inside the container.
+      - "5173:5173"
+    depends_on:
+      # Tells Docker Compose to spin up the backend container first.
+      - backend
+    restart: always
