@@ -20,6 +20,9 @@ def injest_files(file_paths: list[str]):
     # Chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_documents(all_documents)
+
+    if not chunks:
+        return 0
         
     # Embeddings
     embedding_model = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
