@@ -1,10 +1,13 @@
+import json
 import os
 import shutil
+import time
 
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from langchain_chroma import Chroma
@@ -84,8 +87,8 @@ def reset_database():
     }
 
 
-@app.post("/upload_pdf")
-async def upload_pdf(files: list[UploadFile] = File(...)):
+@app.post("/upload_files")
+async def upload_files(files: list[UploadFile] = File(...)):
     os.makedirs("documents", exist_ok=True)
 
     uploaded_files = []
@@ -235,3 +238,128 @@ Question:
         "answer": response.content,
         "sources": source_chunks
     }
+
+
+@app.post("/ask_stream")
+def ask_question_stream(request: QueryRequest):
+    vector_store = Chroma(
+        persist_directory="./chroma_db",
+        embedding_function=embedding_model
+    )
+
+    retriever = vector_store.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 3}
+    )
+
+    search_results = retriever.invoke(request.query)
+
+    context = "\n\n".join(
+        [
+            doc.page_content
+            for doc in search_results
+        ]
+    )
+
+    # Fetch previous conversation
+    history_rows = get_chat_history(
+        request.session_id
+    )
+
+    history_text = "\n".join(
+        [
+            f"{role}: {message}"
+            for role, message in history_rows
+        ]
+    )
+
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                """
+You are a helpful assistant.
+
+Use:
+1. Previous conversation history
+2. Retrieved document context
+
+Answer only from the document context.
+
+If the answer is not available in the context, respond professionally that you do not have enough information to answer.
+"""
+            ),
+            (
+                "human",
+                """
+Conversation History:
+{history}
+
+Document Context:
+{context}
+
+Question:
+{query}
+"""
+            )
+        ]
+    )
+
+    final_prompt = prompt.invoke(
+        {
+            "history": history_text,
+            "context": context,
+            "query": request.query
+        }
+    )
+
+    source_chunks = []
+    for i, chunk in enumerate(
+        search_results,
+        start=1
+    ):
+        source_chunks.append(
+            {
+                "chunk_number": i,
+                "source": chunk.metadata.get(
+                    "source",
+                    "Unknown"
+                ),
+                "page": chunk.metadata.get(
+                    "page",
+                    "Unknown"
+                ),
+                "content": chunk.page_content
+            }
+        )
+
+    def event_generator():
+        # Yield sources first
+        yield f"event: sources\ndata: {json.dumps(source_chunks)}\n\n"
+
+        full_response = ""
+        # Yield tokens from stream
+        for chunk in llm.stream(final_prompt):
+            token = chunk.content
+            full_response += token
+            yield f"event: token\ndata: {json.dumps(token)}\n\n"
+            time.sleep(0.04)
+
+        # Save user question
+        save_message(
+            request.session_id,
+            "user",
+            request.query
+        )
+
+        # Save assistant response
+        save_message(
+            request.session_id,
+            "assistant",
+            full_response
+        )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream"
+    )

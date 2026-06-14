@@ -1,4 +1,4 @@
-from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, DirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
@@ -7,12 +7,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-# Loads a list of PDF files and embeds them
+# Loads a list of PDF and text files and embeds them
 def injest_files(file_paths: list[str]):
     all_documents = []
     for path in file_paths:
-        loader = PyPDFLoader(path)
-        all_documents.extend(loader.load())
+        if path.lower().endswith('.pdf'):
+            loader = PyPDFLoader(path)
+            all_documents.extend(loader.load())
+        elif path.lower().endswith('.txt'):
+            loader = TextLoader(path, encoding="utf-8")
+            all_documents.extend(loader.load())
 
     if not all_documents:
         return 0

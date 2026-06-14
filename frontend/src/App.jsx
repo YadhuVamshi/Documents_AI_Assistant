@@ -78,7 +78,7 @@ export default function App() {
     });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/upload_pdf`, {
+      const response = await fetch(`${API_BASE_URL}/upload_files`, {
         method: "POST",
         body: formData,
       });
@@ -115,48 +115,103 @@ export default function App() {
     // 2. Add temporary placeholder message for assistant
     const placeholderMessage = {
       role: "assistant",
-      content: "Thinking...",
+      content: "",
       sources: [],
       isPlaceholder: true,
     };
     setMessages((prev) => [...prev, placeholderMessage]);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/ask`, {
+      const response = await fetch(`${API_BASE_URL}/ask_stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: userQuery, session_id: sessionId }),
       });
-      const data = await response.json();
 
-      if (response.ok) {
-        // Replace placeholder with response
-        setMessages((prev) => {
-          const updated = [...prev];
-          const placeholderIdx = updated.findLastIndex((msg) => msg.isPlaceholder);
-          if (placeholderIdx !== -1) {
-            updated[placeholderIdx] = {
-              role: "assistant",
-              content: data.answer,
-              sources: data.sources || [],
-            };
-          }
-          return updated;
-        });
-      } else {
-        setMessages((prev) => {
-          const updated = [...prev];
-          const placeholderIdx = updated.findLastIndex((msg) => msg.isPlaceholder);
-          if (placeholderIdx !== -1) {
-            updated[placeholderIdx] = {
-              role: "assistant",
-              content: `Error: ${data.detail || "Unable to retrieve response."}`,
-              sources: [],
-            };
-          }
-          return updated;
-        });
+      if (!response.ok) {
+        throw new Error("Unable to retrieve response.");
       }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+      let accumulatedText = "";
+      let retrievedSources = [];
+      let buffer = "";
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Find complete SSE messages (separated by double newlines)
+        let boundary = buffer.indexOf("\n\n");
+        while (boundary !== -1) {
+          const message = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+
+          // Parse the event and data lines
+          const lines = message.split("\n");
+          let eventType = "";
+          let dataPayload = "";
+
+          for (const line of lines) {
+            const cleanLine = line.replace("\r", "").trim();
+            if (cleanLine.startsWith("event:")) {
+              eventType = cleanLine.replace("event:", "").trim();
+            } else if (cleanLine.startsWith("data:")) {
+              dataPayload = cleanLine.replace("data:", "").trim();
+            }
+          }
+
+          if (eventType === "sources" && dataPayload) {
+            try {
+              retrievedSources = JSON.parse(dataPayload);
+            } catch (e) {
+              console.error("Failed to parse sources:", e);
+            }
+          } else if (eventType === "token" && dataPayload) {
+            try {
+              const token = JSON.parse(dataPayload);
+              accumulatedText += token;
+
+              // Incrementally update UI with the streamed tokens
+              setMessages((prev) => {
+                const updated = [...prev];
+                const placeholderIdx = updated.findLastIndex((msg) => msg.isPlaceholder);
+                if (placeholderIdx !== -1) {
+                  updated[placeholderIdx] = {
+                    role: "assistant",
+                    content: accumulatedText,
+                    sources: retrievedSources,
+                    isPlaceholder: true,
+                  };
+                }
+                return updated;
+              });
+            } catch (e) {
+              console.error("Failed to parse token:", e);
+            }
+          }
+
+          boundary = buffer.indexOf("\n\n");
+        }
+      }
+
+      // Stream is finished! Clear the placeholder status
+      setMessages((prev) => {
+        const updated = [...prev];
+        const placeholderIdx = updated.findLastIndex((msg) => msg.isPlaceholder);
+        if (placeholderIdx !== -1) {
+          updated[placeholderIdx] = {
+            ...updated[placeholderIdx],
+            isPlaceholder: false,
+          };
+        }
+        return updated;
+      });
     } catch (error) {
       setMessages((prev) => {
         const updated = [...prev];
@@ -166,6 +221,7 @@ export default function App() {
             role: "assistant",
             content: "Connection error: Unable to contact the query endpoint.",
             sources: [],
+            isPlaceholder: false,
           };
         }
         return updated;
@@ -206,14 +262,14 @@ export default function App() {
 
       {/* 1. PDF Upload Section */}
       <div className="card upload-section">
-        <h3>Step 1: Upload PDFs</h3>
+        <h3>Step 1: Upload Documents</h3>
         
         <div className="file-upload-wrapper">
           <div className="file-input-custom">
-            Choose PDF Files
+            Choose Files (PDF, TXT)
             <input 
               type="file" 
-              accept=".pdf" 
+              accept=".pdf,.txt" 
               multiple
               className="file-input-hidden"
               onChange={handleFileChange} 
