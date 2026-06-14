@@ -407,3 +407,38 @@
   padding-left: 8px;
 }
 
+/* Uploaded Documents List */
+.uploaded-docs-container {
+  margin-top: 16px;
+  background: var(--code-bg);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.uploaded-docs-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-h);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.uploaded-docs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uploaded-doc-badge {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-h);
+  display: inline-flex;
+  align-items: center;
+}
+

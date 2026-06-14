@@ -5,6 +5,7 @@ const API_BASE_URL = `http://${window.location.hostname}:8000`;
 
 export default function App() {
   const [files, setFiles] = useState([]);
+  const [uploadedDocs, setUploadedDocs] = useState([]);
   const [uploadStatus, setUploadStatus] = useState("");
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState([]);
@@ -43,6 +44,7 @@ export default function App() {
     localStorage.setItem("chat_session_id", newId);
     setSessionId(newId);
     setMessages([]);
+    setUploadedDocs([]);
   }, []);
 
   const handleFileChange = (e) => {
@@ -83,9 +85,11 @@ export default function App() {
       const data = await response.json();
       
       if (response.ok) {
-        const fileNames = data.uploaded_files.map(f => f.filename).join(", ");
+        const fileNamesList = data.uploaded_files.map(f => f.filename);
+        const fileNames = fileNamesList.join(", ");
         const chunkCount = data.new_chunks;
         setUploadStatus(`Success! Uploaded: ${fileNames} (${chunkCount} chunks generated).`);
+        setUploadedDocs((prev) => [...prev, ...fileNamesList]); // Append new files to list of uploaded docs
         setFiles([]); // Clear selected files list after successful upload
       } else {
         setUploadStatus(`Upload failed: ${data.detail || "Server error"}`);
@@ -185,6 +189,7 @@ export default function App() {
       setSessionId(newId);
       setMessages([]);
       setFiles([]);
+      setUploadedDocs([]);
       setUploadStatus("Database and chat session cleared successfully.");
     } catch (err) {
       console.error("Failed to reset database:", err);
@@ -235,6 +240,20 @@ export default function App() {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* Uploaded Documents List */}
+        {uploadedDocs.length > 0 && (
+          <div className="uploaded-docs-container">
+            <strong className="uploaded-docs-title">Uploaded Documents in Session:</strong>
+            <div className="uploaded-docs-list">
+              {uploadedDocs.map((doc, idx) => (
+                <span key={idx} className="uploaded-doc-badge">
+                  📄 {doc}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
