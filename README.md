@@ -1,6 +1,6 @@
 # Multi-Document AI Assistant (RAG Pipeline)
 
-A containerized, full-stack Retrieval-Augmented Generation (RAG) application that allows users to upload multiple PDF documents and converse with them. The project features a FastAPI backend, a React/Vite frontend, a Chroma vector store, and a SQLite-based chat history database.
+A containerized, full-stack Retrieval-Augmented Generation (RAG) application that allows users to upload multiple PDF and TXT documents and converse with them in real-time with response streaming. The project features a FastAPI backend, a React/Vite frontend, a Chroma vector store, and a SQLite-based chat history database.
 
 ---
 
@@ -8,32 +8,32 @@ A containerized, full-stack Retrieval-Augmented Generation (RAG) application tha
 
 Below is a diagram illustrating the ingestion and query-response flows in this application:
 
-### Ingestion Flow (PDF Upload & Indexing)
+### Ingestion Flow (File Upload & Indexing)
 ```
-[User Uploads PDFs]
-         │
-         ▼
-[FastAPI /upload_pdf]
-         │
-         ▼
-[PyPDFLoader (Extract Text)]
-         │
-         ▼
+[User Uploads PDF or TXT Files]
+               │
+               ▼
+    [FastAPI /upload_files]
+               │
+               ▼
+[PyPDFLoader or TextLoader (Extract Text)]
+               │
+               ▼
 [RecursiveCharacterTextSplitter] (Chunk Size: 1000, Overlap: 200)
-         │
-         ▼
+               │
+               ▼
 [Google Gemini Embeddings] (models/gemini-embedding-001)
-         │
-         ▼
+               │
+               ▼
 [Chroma Vector Store] (Persisted to ./chroma_db)
 ```
 
-### Retrieval & Query Flow
+### Retrieval & Query Flow (Streaming)
 ```
                [User Question & Session ID]
                             │
                             ▼
-                     [FastAPI /ask]
+                 [FastAPI /ask_stream]
                             │
             ┌───────────────┴───────────────┐
             ▼                               ▼
@@ -53,9 +53,8 @@ Below is a diagram illustrating the ingestion and query-response flows in this a
             │                               │
             └───────────────┬───────────────┘
                             ▼
-                [Return JSON Response]
-                  - Answer
-                  - Retrieved Source Page & Chunks
+          [Stream Response Chunk-by-Chunk]
+             (Server-Sent Events / SSE)
 ```
 
 ---
@@ -142,6 +141,12 @@ If you want to run the project directly on your host machine.
 ### 4. Memory/Session Storage: SQLite (`chat_memory.db`)
 - **Why**: SQLite runs as a local database file, ensuring chat sessions are persisted across page reloads without requiring an external database cluster like Redis or PostgreSQL. It handles multi-turn conversation memory by fetching the last 6 messages of the user's active session.
 
+### 5. LLM Response Streaming (Server-Sent Events / SSE)
+- **Why**: Real-time response streaming provides a low-latency, engaging conversational experience. The backend `/ask_stream` endpoint utilizes Server-Sent Events (SSE) to transmit tokens chunk-by-chunk to the user. A custom delay in the streaming generator controls output velocity (defaulting to a natural typewriter pacing), while the frontend manages incoming network buffers and appends tokens smoothly.
+
+### 6. Dynamic File Routing (PDF & TXT)
+- **Why**: The ingestion service supports multiple file formats, dynamically invoking `PyPDFLoader` for `.pdf` files and `TextLoader` for `.txt` files. This keeps the rest of the text-splitting, embedding, and vector persistence layer completely unified.
+
 ---
 
 ## 4. Known Limitations & Future Improvements
@@ -149,7 +154,7 @@ If you want to run the project directly on your host machine.
 ### Current Limitations:
 1. **File-Bound Database**: SQLite database lock issues can occur under high user concurrency.
 2. **Local Vector Database**: Chroma DB runs inside the container process. If you scale the backend to multiple instances, they will not share vector space without a separate central vector database.
-3. **Scanned PDF Limitations**: The current `PyPDFLoader` reads text layers. Scanned PDF documents (images of text) will not be indexed properly.
+3. **Scanned PDF & Empty Documents**: The current `PyPDFLoader` reads text layers. Scanned PDF documents (images of text) or empty files will extract `0` chunks, though the backend now handles this gracefully (skipping ingestion to avoid vector store errors).
 4. **Coarse-Grained Chunking**: Fixed-size text splitting can occasionally slice paragraphs in half, separating key context.
 
 ### Future Improvements:
