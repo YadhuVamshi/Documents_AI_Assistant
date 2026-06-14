@@ -14,7 +14,7 @@ htmlcov/
 
 # Local Databases (Vector DB & SQLite Session DB)
 chroma_db/
-chat_memory.db
+data/
 
 # User Uploaded Documents
 documents/

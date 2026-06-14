@@ -13,7 +13,7 @@ services:
       # Binds local folders to the container, so DB state and uploads persist on your host disk
       - ./documents:/app/documents
       - ./chroma_db:/app/chroma_db
-      - ./chat_memory.db:/app/chat_memory.db
+      - ./data:/app/data
     restart: always
 
   # 2. Vite React Frontend Service

@@ -12,7 +12,7 @@ __pycache__/
 # Exclude local databases and documents
 chroma_db/
 documents/
-chat_memory.db
+data/
 
 # Exclude git metadata
 .git/
