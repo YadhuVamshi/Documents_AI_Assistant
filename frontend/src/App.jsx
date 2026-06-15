@@ -49,15 +49,31 @@ export default function App() {
 
   const handleFileChange = (e) => {
     const selected = Array.from(e.target.files);
-    setFiles((prev) => {
-      const updated = [...prev];
-      selected.forEach((file) => {
-        if (!updated.some((f) => f.name === file.name && f.size === file.size)) {
-          updated.push(file);
-        }
-      });
-      return updated;
+    const newFiles = [];
+    const duplicates = [];
+
+    selected.forEach((file) => {
+      const isAlreadyInQueue = files.some((f) => f.name === file.name && f.size === file.size) || 
+                               newFiles.some((f) => f.name === file.name && f.size === file.size);
+      const isAlreadyUploaded = uploadedDocs.some((docName) => docName === file.name);
+
+      if (isAlreadyUploaded || isAlreadyInQueue) {
+        duplicates.push(file.name);
+      } else {
+        newFiles.push(file);
+      }
     });
+
+    if (newFiles.length > 0) {
+      setFiles((prev) => [...prev, ...newFiles]);
+    }
+
+    if (duplicates.length > 0) {
+      alert(`The following file(s) were skipped as they are duplicates or already uploaded:\n${duplicates.join("\n")}`);
+    }
+
+    // Reset the input value so selecting the same file again triggers onChange
+    e.target.value = "";
   };
 
   const handleRemoveFile = (index) => {
