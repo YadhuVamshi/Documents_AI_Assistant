@@ -271,7 +271,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <h2 className="app-title">Document AI Assistant UI</h2>
+      <h2 className="app-title">Document AI Assistant</h2>
       <p className="app-subtitle">Conversational RAG interface with persistent memory.</p>
       
       <hr className="separator" />
